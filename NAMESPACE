@@ -1,0 +1,10 @@
+exportPattern("^[[:alpha:]]+")
+
+importFrom("stats", "as.formula", "coef", "complete.cases", "cov",
+		 "lm", "median", "model.matrix", "pnorm", "quantile",
+		 "rbinom", "rnorm", "vcov", 'var','qnorm','sd')
+
+importFrom("Matrix", "Matrix", "tcrossprod")
+
+importFrom("methods", "as")
+
