@@ -86,12 +86,15 @@ parseMinimalData = function(minimal_data, num_cat, num_cont, subset = FALSE,
 	#Extract categoricals as a matrix and explicitly turn into a factor
 	if (num_cat > 0){
 		cat_var_mat = minimal_data[  ,cat_var_locat]
-		cat_var_mat = data.frame(sapply(cat_var_mat, as.character), stringsAsFactors = FALSE)
+		cat_var_mat = matrix(sapply(cat_var_mat, as.character), ncol = num_cat)
 		if (cat_na == 'category'){
 			cat_var_mat[is.na(cat_var_mat)] = '99'
 		}
 
 		colnames(cat_var_mat) = names(minimal_data)[cat_var_locat]
+
+
+
 		#Explicitly turn each categorical into a factor
 		for (i in 1:num_cat){
 		   cat_var_mat[ ,i] = as.factor(cat_var_mat[ ,i] )
