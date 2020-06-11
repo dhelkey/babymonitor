@@ -18,14 +18,14 @@
 #'
 #' @param num_cat integer. Number of categorical risk adjusters.
 #' @param num_cont integer. Number of continuous risk adjusters.
-#' @param outcome_type string. Data type of data 'dichotomous'/'cont'. ('cont' requires use_JAGS=TRUE)
-#' @param alpha scalar in (0,1). Statistical significance threshold. Posterior (1-alpha)\% intervals are generated.
-#' @param use_JAGS bool.  If TRUE, performs inference with statgistical inferance with JAGS (required for continious outcomes)
-#' @param prior_var_beta. Prior variance for regression coefficients.
+#' @param outcome_type string. Data type of data 'dichotomous'/'cont'
+#' @param var_intercept scalar. Prior variance for the intercept.
+#' @param var_cat scalar. Prior variance for categorical risk adjuster parameters.
+#' @param var_cat_interaction scalar. Prior variance for interactions between categorical risk adjusters.
+#' @param var_cont scalar. Prior variance for continuous risk adjusters.
 #' @param iters integer. Desired number of posterior MCMC iterations.
 #' @param burn_in integer. Number of 'burn-in' MCMC iterations to discard.
-#' @param prior_shape.  Prior gamma shape parameter (only for outcome_type=='cont').
-#' @param prior_shape.  Prior gamma rate parameter (only for outcome_type=='cont').
+#' @param alpha scalar in (0,1). Statistical significance threshold. Posterior (1-alpha)\% intervals are generated.
 #' @param bonferroni logical; if TRUE, posterior intervals are widened with the Bonferroni correction.
 #' @param t_scores logical; if TRUE, posterior intervals confidence intervals constructed with the student t-distribution. If FALSE, z-scores are used. Default = TRUE
 #' @param dat_out logical; if TRUE, export MCMC iterations and other parameters in the \code{dat} component.
@@ -33,8 +33,6 @@
 #' @param subset_na Method for handling any NA subset values. 'remove' removes rows with NA subset values while 'category' makes a new subset category (coded as 99) for NA values.
 #' @param cat_na Method for handling any NA values in the categorical risk adjusters. 'remove' removes rows with NA values while 'category' makes a new category (coded as 99) for NA catorical risk adjusters.
 #' @param cont_na Method for handling any NA values in the continous risk adjusters. 'remove' removes rows with NA values while 'median' replaces NA with the median value of the risk adjuster.
-#' @param compute_dg logical; if TRUE, compute DG scores, using quantized values of risk adjusters, if applicable.
-#'
 #' @return
 #'	Returns a large list with the following components:
 #'
@@ -59,32 +57,26 @@
 
 fitBabyMonitor = function(minimal_data, num_cat, num_cont,
                           outcome_type = 'dichotomous',
-						  alpha = 0.01,
-						  use_JAGS = FALSE,
-                          subset = FALSE,
-						  prior_var_beta = 10,
-						subset_base_catgory = 1,
-                          iters = 500,
-						  burn_in = 25,
-						  dg_gamma = 0.5,
-						  prior_shape = 1,
-						   prior_rate = 1,
-                          bonferroni = TRUE,
-						  t_scores = TRUE,
-                          outcome_na = 'remove',
-						  subset_na = 'category',
-                          cat_na = 'category',
-						  cont_na = 'median',
-						  score_type = 'stat_z_scaled',
-			              dat_out = FALSE,
-						  compute_dg = FALSE){
-	if (outcome_type == 'cont'){use_JAGS=TRUE} #Continuous model requires JAGS
+                          subset = FALSE, subset_base_catgory = 1,
+                          var_intercept = 40, var_cat = 10,
+                          var_cat_interaction = 10, var_cont = 10,
+                          iters = 500, burn_in = 25,
+                          n_cutoff = 1, alpha = 0.01,
+                          bonferroni = TRUE, t_scores = TRUE,
+                          outcome_na = 'remove', subset_na = 'category',
+                          cat_na = 'category', cont_na = 'median',
+			  score_type = 'stat_z_scaled',  dat_out = FALSE){
 
   dat = parseMinimalData(minimal_data, num_cat, num_cont,
                                     	subset = subset, outcome_na = outcome_na,
 					subset_na = subset_na, cat_na = cat_na,
-					 cont_na = cont_na)
+					 cont_na = cont_na, n_cutoff = n_cutoff)
 
+  #Compute D-G rankings
+  dg_fun = switch(outcome_type,
+                  'dichotomous' = designBased,
+                  'cont' = designBasedCont)
+  dg = dg_fun(0.5, dat$y, dat$pcf_vec, dat$inst_vec)
 
   #Partition data by institution, subset, and institution-subset
   p_inst = partitionSummary(dat$y, dat$inst_vec)
@@ -97,107 +89,55 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
   model_mat_cont = modelMatrix(dat$cont_var_mat)
   model_mat = cbind( rep(1, dat$N), model_mat_cat, model_mat_cont)
   if (num_cat == 0){  model_mat = cbind( rep(1, dat$N), model_mat_cont)}
-  p_tot = dim(model_mat)[2] #Number of parameters in the regression model
 
-  #Store model matrices of different variable types
   dat$model_mat_cat = model_mat_cat
   dat$model_mat_cont = model_mat_cont
 
-  dg_out_vec = NULL
-  if (compute_dg){ #Compute D-G score, with categorical variables quantized
-	    m_cat = model_mat_cat
-		if (num_cont > 0){
-		  m_cont = apply( model_mat_cont, 2, toQuantiles)
-			m_cat =  cbind(m_cat, m_cont)
-		}
-	#Create id string
-	pcf_vec = apply(m_cat, 1, idStr)
-		dg_fun = switch(outcome_type,
-					  'dichotomous' = designBased,
-					  'cont' = designBasedCont)
-	  dg = dg_fun(dg_gamma, dat$y, pcf_vec, dat$inst_vec)
-	  dg_out_vec = dg$Z
-	}
-
-	#Prior variance vector for regression coefficients
-	prior_var_vec = rep(prior_var_beta, p_tot)
-
-	#Fit Model
-	###############################
-	if (use_JAGS){#Collect data for JAGS modeling (note that continuous model requires specifying a value for prior_gamma)
-		data_list = list(Y = dat$y, X = as.matrix(model_mat), n = dat$N, p = p_tot,
-                   prior_var_beta = prior_var_beta)
-	}
-  if (outcome_type=='dichotomous'){
-	if (use_JAGS){
-		model_string = "model{
-		#Likelihood
-		for (i in 1:n){
-		  Y[i] ~ dbin(prob[i], 1)
-		  prob[i] = phi(inprod(beta, X[i, ]))
-		}
-		#Prior
-		for (j in 1:p){
-		  beta[j] ~ dnorm(0, 1/prior_var_beta)
-		}
-		}"
-		#Fit model w/ JAGS
-		model_fit = jagsFun(data_list, model_str = model_string, n_iters = iters, n_burnin = burn_in)
-
-		#Extract MCMC iterations from JAGS
-		mcmc_iters = as.matrix(model_fit$samples[[1]][ ,1:p_tot])
-
-	} else { #Fit with native R code (quicker)
-		mcmc_iters = probitFit(dat$y, model_mat, prior_var_vec,
-                         iters = iters + burn_in)[-(1:burn_in),  ]
-	}
-	#Create Institution level estimates
-	#MCMC matrix of individual level probabilities
-	p_i_mat = pnorm(as.matrix(tcrossprod(model_mat, mcmc_iters)))
-
-	#Extract posterior row mean, implied observational variance, and row variance
-	p_i_vec = apply(p_i_mat, 1, mean)
-	p_i_var_vec = apply(p_i_mat, 1, var)
-	pq_i_vec = p_i_vec * (1-p_i_vec)
-	p_i_overall_var_vec =  pq_i_vec + p_i_var_vec #Law of total variance
-  } else if (outcome_type == 'cont'){
-
-	model_string = "model{
-      #Likelihood
-      for (i in 1:n){
-        Y[i] ~ dnorm(mu[i], inv.var)
-        mu[i] = inprod(beta, X[i, ])
-      }
-      #Prior
-      inv.var ~ dgamma(prior_shape, prior_rate)
-      sigma2 = 1/inv.var
-      for (j in 1:p){
-        beta[j] ~ dnorm(0, 1/prior_var_beta)
-      }
-    }"
-	data_list$prior_shape = prior_shape
-	data_list$prior_rate = prior_rate
-	parameters_to_save = c('beta', 'sigma2')
-	model_fit = jagsFun(data_list, model_str = model_string, parameters_to_save = parameters_to_save,
-			n_iters = iters, n_burnin = burn_in)
-
-	#Extract MCMC_iters
-    mcmc_iters = model_fit$samples[[1]][ ,1:p_tot]
-    sigma2_iters = model_fit$samples[[1]][ ,p_tot+1]
-    p_i_mat =as.matrix(tcrossprod(as.matrix(model_mat), mcmc_iters))
-    p_i_vec = rowMeans(p_i_mat)
-    p_i_var_vec = apply(p_i_mat, 1, var)
-    sigma2_vec = rep(mean(sigma2_iters), dat$N)
-    p_i_overall_var_vec =  sigma2_vec + p_i_var_vec #Law of total variance
+  #Prior variance vector
+  prior_var_cat = NULL
+  if (num_cat > 0){
+    prior_var_cat = rep(var_cat, dim(model_mat_cat)[2])
+	prior_var_cat[grep(':',
+			colnames(model_mat_cat))] = var_cat_interaction
   }
+   prior_var_cont = NULL
+   if (num_cont > 0){
+	prior_var_cont = rep(var_cont, dim(model_mat_cont)[2])
+  }
+  prior_var_vec = c(var_intercept, prior_var_cat, prior_var_cont)
+
+  #Fit model
+  fit_fun = switch(outcome_type,
+                   'dichotomous'=probitFit,
+                   'cont'=bayesianRegression)
+				   
+  mcmc_iters = fit_fun(dat$y, model_mat, prior_var_vec,
+                         iters = iters + burn_in)[-(1:burn_in),  ]
+
+	transform_fun = switch(outcome_type,
+							'dichotomous'=function(x){pnorm(x)},
+							'cont'=function(x){ x})
+
+
+  #MCMC matrix of individual level pobabilities
+  p_i_mat = transform_fun(as.matrix(tcrossprod(model_mat, mcmc_iters)))
+
+print(head(p_i_mat))
+
+  #Extract posterior rowwise mean, implied observational variance, and rowwise variance
+  p_i_vec = apply(p_i_mat, 1, mean)
+  p_i_var_vec = apply(p_i_mat, 1, var)
+  pq_i_vec = p_i_vec * (1-p_i_vec)
+  p_i_overall_var_vec =  pq_i_vec + p_i_var_vec #Law of total variance
   rm(p_i_mat) #Remove to save space
 
-  #Draper-Gittoes-Helkey institution effects
+  #Draper-Gittoes-Helkey effects
   dgh_inst = dghRank(dat$y, p_i_vec, p_i_overall_var_vec, p_inst$ind_mat)
   dgh_subset = dghRank(dat$y, p_i_vec, p_i_overall_var_vec, p_subset$ind_mat)
   dgh_inst_subset = dghRank(dat$y, p_i_vec, p_i_overall_var_vec, p_inst_subset$ind_mat)
 
-  #Compute score data
+
+  #Compute score data (
   scores_inst = toScore(dgh_inst$D, dgh_inst$S)
   scores_subset = toScore(dgh_subset$D, dgh_subset$S)
   scores_inst_subset = toScore(dgh_inst_subset$D, dgh_inst_subset$S)
@@ -209,14 +149,13 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 	#If null, terminate early
 	if (is.null(dgh_mat)){return(NULL)}
 
-	#Extract labels, counts, and observed rate
+	#Extract lables, counts, and observed rate
 	out_mat = cbind(part_dat$part_mat,
 		data.frame(n = part_dat$n, o_mean = part_dat$o_mean))
 
 	#Extract effect and SE
 	effect_est = dgh_mat$D; effect_se =  dgh_mat$S
 
-	#COmpute Logistic Regression quality ratio estimate
 	lr_est = dgh_mat$O / dgh_mat$E
 
 	#Select score est and se for desired standardization method (score_type)
@@ -228,16 +167,15 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 	score_est = score_list[[1]]
 	score_se = score_list[[2]]
 
-	out =  cbind(out_mat,
-	             data.frame(
-	               effect_est = effect_est,
-	               effect_se = effect_se,
-	               lr_est = lr_est,
-	               score_est = score_est,
-	               score_se = score_se,
-	               stat_z = dgh_mat$Z))
-	out[c('dg_z')] = dg_out_vec
-	return(out)
+	return( cbind(out_mat,
+		data.frame(
+			effect_est = effect_est,
+			effect_se = effect_se,
+			lr_est = lr_est,
+			score_est = score_est,
+			score_se = score_se,
+			stat_z = dgh_mat$Z,
+			dg_z = dg$Z)))
 	}
 
   	#Summary data
@@ -258,7 +196,7 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 		function(inst) toBaseline(inst_subset_mat[inst_subset_mat$inst == inst,  ], inst=TRUE))
 	inst_subset_mat_baseline = do.call('rbind', inst_subset_list_baseline)
 
-	#Add confidence intervals
+	##Add confidence intervals
 	aI = function(mat){#Wrapper for add intervals to include all options
 	addIntervals(mat, bonferroni = bonferroni, t_scores = t_scores, alpha = alpha)
 	}

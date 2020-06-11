@@ -2,11 +2,13 @@
 #'
 #' @inheritParams fitBabyMonitor
 parseMinimalData = function(minimal_data, num_cat, num_cont, subset = FALSE,
-		outcome_na = 'set0',
+		outcome_na = 'remove',
 		subset_na = 'category',
 		cat_na = 'category',
 		cont_na = 'median',
 		 n_cutoff = 1){
+
+  minimal_data = as.matrix(minimal_data)
 
 	#Count total records
 	N_full = dim(minimal_data)[1]
@@ -78,22 +80,23 @@ parseMinimalData = function(minimal_data, num_cat, num_cont, subset = FALSE,
 		if (cont_na == 'median'){
 			cont_var_mat = cbind(sapply(cont_var_mat, imputeFun))
 		}
-		colnames(cont_var_mat) = names(minimal_data)[cont_var_locat]
+		colnames(cont_var_mat) = names(minimal_data)[cont_var_locat];
     }
 
 
 	#This is done last, after we deal with all NA values
 	#Extract categoricals as a matrix and explicitly turn into a factor
 	if (num_cat > 0){
-		cat_var_mat = minimal_data[  ,cat_var_locat]
-		cat_var_mat = matrix(sapply(cat_var_mat, as.character), ncol = num_cat)
+		cat_var_mat =as.matrix(minimal_data[  ,cat_var_locat])
+		#print(head(cat_var_mat))
+		#cat_var_mat = data.frame(lapply(cat_var_mat, as.character), stringsAsFactors = FALSE)
+		#print(head(cat_var_mat))
+		#print(sum(is.na(cat_var_mat)))
 		if (cat_na == 'category'){
 			cat_var_mat[is.na(cat_var_mat)] = '99'
 		}
 
 		colnames(cat_var_mat) = names(minimal_data)[cat_var_locat]
-
-
 
 		#Explicitly turn each categorical into a factor
 		for (i in 1:num_cat){

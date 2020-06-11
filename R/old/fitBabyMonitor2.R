@@ -33,8 +33,6 @@
 #' @param subset_na Method for handling any NA subset values. 'remove' removes rows with NA subset values while 'category' makes a new subset category (coded as 99) for NA values.
 #' @param cat_na Method for handling any NA values in the categorical risk adjusters. 'remove' removes rows with NA values while 'category' makes a new category (coded as 99) for NA catorical risk adjusters.
 #' @param cont_na Method for handling any NA values in the continous risk adjusters. 'remove' removes rows with NA values while 'median' replaces NA with the median value of the risk adjuster.
-#' @param compute_dg logical; if TRUE, compute DG scores, using quantized values of risk adjusters, if applicable.
-#'
 #' @return
 #'	Returns a large list with the following components:
 #'
@@ -69,17 +67,12 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 						  dg_gamma = 0.5,
 						  prior_shape = 1,
 						   prior_rate = 1,
-                          bonferroni = TRUE,
-						  t_scores = TRUE,
-                          outcome_na = 'remove',
-						  subset_na = 'category',
-                          cat_na = 'category',
-						  cont_na = 'median',
-						  score_type = 'stat_z_scaled',
-			              dat_out = FALSE,
-						  compute_dg = FALSE){
+                          bonferroni = TRUE, t_scores = TRUE,
+                          outcome_na = 'remove', subset_na = 'category',
+                          cat_na = 'category', cont_na = 'median',
+			  score_type = 'stat_z_scaled',  dat_out = FALSE){
 	if (outcome_type == 'cont'){use_JAGS=TRUE} #Continuous model requires JAGS
-
+			 
   dat = parseMinimalData(minimal_data, num_cat, num_cont,
                                     	subset = subset, outcome_na = outcome_na,
 					subset_na = subset_na, cat_na = cat_na,
@@ -103,21 +96,12 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
   dat$model_mat_cat = model_mat_cat
   dat$model_mat_cont = model_mat_cont
 
-  dg_out_vec = NULL
-  if (compute_dg){ #Compute D-G score, with categorical variables quantized
-	    m_cat = model_mat_cat
-		if (num_cont > 0){
-		  m_cont = apply( model_mat_cont, 2, toQuantiles)
-			m_cat =  cbind(m_cat, m_cont)
-		}
-	#Create id string
-	pcf_vec = apply(m_cat, 1, idStr)
-		dg_fun = switch(outcome_type,
-					  'dichotomous' = designBased,
-					  'cont' = designBasedCont)
-	  dg = dg_fun(dg_gamma, dat$y, pcf_vec, dat$inst_vec)
-	  dg_out_vec = dg$Z
-	}
+
+  #Compute D-G score, with categorical variables quantized
+  dg_fun = switch(outcome_type,
+                  'dichotomous' = designBased,
+                  'cont' = designBasedCont)
+  dg = dg_fun(dg_gamma, dat$y, dat$pcf_vec, dat$inst_vec)
 
 	#Prior variance vector for regression coefficients
 	prior_var_vec = rep(prior_var_beta, p_tot)
@@ -143,10 +127,10 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 		}"
 		#Fit model w/ JAGS
 		model_fit = jagsFun(data_list, model_str = model_string, n_iters = iters, n_burnin = burn_in)
-
+		
 		#Extract MCMC iterations from JAGS
 		mcmc_iters = as.matrix(model_fit$samples[[1]][ ,1:p_tot])
-
+		
 	} else { #Fit with native R code (quicker)
 		mcmc_iters = probitFit(dat$y, model_mat, prior_var_vec,
                          iters = iters + burn_in)[-(1:burn_in),  ]
@@ -161,7 +145,7 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 	pq_i_vec = p_i_vec * (1-p_i_vec)
 	p_i_overall_var_vec =  pq_i_vec + p_i_var_vec #Law of total variance
   } else if (outcome_type == 'cont'){
-
+ 
 	model_string = "model{
       #Likelihood
       for (i in 1:n){
@@ -180,7 +164,7 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 	parameters_to_save = c('beta', 'sigma2')
 	model_fit = jagsFun(data_list, model_str = model_string, parameters_to_save = parameters_to_save,
 			n_iters = iters, n_burnin = burn_in)
-
+	
 	#Extract MCMC_iters
     mcmc_iters = model_fit$samples[[1]][ ,1:p_tot]
     sigma2_iters = model_fit$samples[[1]][ ,p_tot+1]
@@ -191,7 +175,7 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
     p_i_overall_var_vec =  sigma2_vec + p_i_var_vec #Law of total variance
   }
   rm(p_i_mat) #Remove to save space
-
+  
   #Draper-Gittoes-Helkey institution effects
   dgh_inst = dghRank(dat$y, p_i_vec, p_i_overall_var_vec, p_inst$ind_mat)
   dgh_subset = dghRank(dat$y, p_i_vec, p_i_overall_var_vec, p_subset$ind_mat)
@@ -216,7 +200,6 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 	#Extract effect and SE
 	effect_est = dgh_mat$D; effect_se =  dgh_mat$S
 
-	#COmpute Logistic Regression quality ratio estimate
 	lr_est = dgh_mat$O / dgh_mat$E
 
 	#Select score est and se for desired standardization method (score_type)
@@ -228,16 +211,15 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 	score_est = score_list[[1]]
 	score_se = score_list[[2]]
 
-	out =  cbind(out_mat,
-	             data.frame(
-	               effect_est = effect_est,
-	               effect_se = effect_se,
-	               lr_est = lr_est,
-	               score_est = score_est,
-	               score_se = score_se,
-	               stat_z = dgh_mat$Z))
-	out[c('dg_z')] = dg_out_vec
-	return(out)
+	return( cbind(out_mat,
+		data.frame(
+			effect_est = effect_est,
+			effect_se = effect_se,
+			lr_est = lr_est,
+			score_est = score_est,
+			score_se = score_se,
+			stat_z = dgh_mat$Z,
+			dg_z = dg$Z)))
 	}
 
   	#Summary data

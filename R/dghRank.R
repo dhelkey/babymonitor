@@ -16,10 +16,11 @@ dghRank = function (y_vec, mean_vec, var_vec, ind_mat)
           o_vec = matrix(n_inv %*% (t_ind_mat %*% y_vec))
           d_vec = o_vec - e_vec
           s_vec = matrix(n_inv %*% sqrt(t_ind_mat %*% var_vec))
-          return(list(E = e_vec, 
-                      D = d_vec, 
-                      S = s_vec, 
+          return(list(E = e_vec,
+                      O = o_vec,
+                      D = d_vec,
+                      S = s_vec,
                       Z = d_vec/s_vec
-                      ))  
-  
+                      ))
+
 }
