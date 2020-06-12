@@ -1,3 +1,4 @@
+
 #' Fit Baby-MONITOR for CPQCC/VON
 #'
 #' \code{fitBabyMonitor} applies the Baby-MONITOR score  to a single performance indicator. Designed for CPQCC/VON usage.
@@ -59,32 +60,33 @@
 
 fitBabyMonitor = function(minimal_data, num_cat, num_cont,
                           outcome_type = 'dichotomous',
-						  alpha = 0.01,
-						  use_JAGS = FALSE,
+                          alpha = 0.01,
+                          use_JAGS = FALSE,
                           subset = FALSE,
-						  prior_var_beta = 10,
-						subset_base_catgory = 1,
+                          prior_var_beta = 10,
+                          subset_base_catgory = 1,
                           iters = 500,
-						  burn_in = 25,
-						  dg_gamma = 0.5,
-						  prior_shape = 1,
-						   prior_rate = 1,
+                          burn_in = 25,
+                          dg_gamma = 0.5,
+                          prior_shape = 1,
+                          prior_rate = 1,
                           bonferroni = TRUE,
-						  t_scores = TRUE,
+                          t_scores = TRUE,
                           outcome_na = 'remove',
-						  subset_na = 'category',
+                          subset_na = 'category',
                           cat_na = 'category',
-						  cont_na = 'median',
-						  score_type = 'stat_z_scaled',
-			              dat_out = FALSE,
-						  compute_dg = FALSE){
-	if (outcome_type == 'cont'){use_JAGS=TRUE} #Continuous model requires JAGS
+                          cont_na = 'median',
+                          score_type = 'stat_z_scaled',
+                          dat_out = FALSE,
+                          compute_dg = FALSE)
+  {
+  if (outcome_type == 'cont'){use_JAGS=TRUE} #Continuous model requires JAGS
 
+  #Process data into standardized format, removing all NA
   dat = parseMinimalData(minimal_data, num_cat, num_cont,
-                                    	subset = subset, outcome_na = outcome_na,
-					subset_na = subset_na, cat_na = cat_na,
-					 cont_na = cont_na)
-
+                         subset = subset, outcome_na = outcome_na,
+                         subset_na = subset_na, cat_na = cat_na,
+                         cont_na = cont_na)
 
   #Partition data by institution, subset, and institution-subset
   p_inst = partitionSummary(dat$y, dat$inst_vec)
@@ -93,8 +95,14 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
   if (subset){p_inst_subset = partitionSummary(dat$y, dat$inst, dat$subset_vec)} #To save time, don't always compute
 
   #Additive model for risk adjusters: (intercept + categorical variables w/ interactions + continious variables)
+
+
+
   model_mat_cat = modelMatrix(dat$cat_var_mat, interactions = TRUE)
-  model_mat_cont = modelMatrix(dat$cont_var_mat)
+  model_mat_cont = NULL
+  if (num_cont > 0){model_mat_cont = modelMatrix(dat$cont_var_mat)}
+
+
   model_mat = cbind( rep(1, dat$N), model_mat_cat, model_mat_cont)
   if (num_cat == 0){  model_mat = cbind( rep(1, dat$N), model_mat_cont)}
   p_tot = dim(model_mat)[2] #Number of parameters in the regression model
@@ -105,83 +113,83 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 
   dg_out_vec = NULL
   if (compute_dg){ #Compute D-G score, with categorical variables quantized
-	    m_cat = model_mat_cat
-		if (num_cont > 0){
-		  m_cont = apply( model_mat_cont, 2, toQuantiles)
-			m_cat =  cbind(m_cat, m_cont)
-		}
-	#Create id string
-	pcf_vec = apply(m_cat, 1, idStr)
-		dg_fun = switch(outcome_type,
-					  'dichotomous' = designBased,
-					  'cont' = designBasedCont)
-	  dg = dg_fun(dg_gamma, dat$y, pcf_vec, dat$inst_vec)
-	  dg_out_vec = dg$Z
-	}
+    m_cat = model_mat_cat
+    if (num_cont > 0){
+      m_cont = apply(model_mat_cont, 2, toQuantiles)
+      m_cat =  cbind(m_cat, m_cont)
+    }
+    #Create id string
+    pcf_vec = apply(m_cat, 1, idStr)
+    dg_fun = switch(outcome_type,
+                    'dichotomous' = designBased,
+                    'cont' = designBasedCont)
+    dg = dg_fun(dg_gamma, dat$y, pcf_vec, dat$inst_vec)
+    dg_out_vec = dg$Z
+  }
 
-	#Prior variance vector for regression coefficients
-	prior_var_vec = rep(prior_var_beta, p_tot)
+  #Prior variance vector for regression coefficients
+  prior_var_vec = rep(prior_var_beta, p_tot)
 
-	#Fit Model
-	###############################
-	if (use_JAGS){#Collect data for JAGS modeling (note that continuous model requires specifying a value for prior_gamma)
-		data_list = list(Y = dat$y, X = as.matrix(model_mat), n = dat$N, p = p_tot,
-                   prior_var_beta = prior_var_beta)
-	}
+  #Fit Model
+  ###############################
+  if (use_JAGS){#Collect data for JAGS modeling (note that continuous model requires specifying a value for prior_gamma)
+    data_list = list(Y = dat$y, X = as.matrix(model_mat), n = dat$N, p = p_tot,
+                     prior_var_beta = prior_var_beta)
+  }
   if (outcome_type=='dichotomous'){
-	if (use_JAGS){
-		model_string = "model{
-		#Likelihood
-		for (i in 1:n){
-		  Y[i] ~ dbin(prob[i], 1)
-		  prob[i] = phi(inprod(beta, X[i, ]))
-		}
-		#Prior
-		for (j in 1:p){
-		  beta[j] ~ dnorm(0, 1/prior_var_beta)
-		}
-		}"
-		#Fit model w/ JAGS
-		model_fit = jagsFun(data_list, model_str = model_string, n_iters = iters, n_burnin = burn_in)
-
-		#Extract MCMC iterations from JAGS
-		mcmc_iters = as.matrix(model_fit$samples[[1]][ ,1:p_tot])
-
-	} else { #Fit with native R code (quicker)
-		mcmc_iters = probitFit(dat$y, model_mat, prior_var_vec,
-                         iters = iters + burn_in)[-(1:burn_in),  ]
-	}
-	#Create Institution level estimates
-	#MCMC matrix of individual level probabilities
-	p_i_mat = pnorm(as.matrix(tcrossprod(model_mat, mcmc_iters)))
-
-	#Extract posterior row mean, implied observational variance, and row variance
-	p_i_vec = apply(p_i_mat, 1, mean)
-	p_i_var_vec = apply(p_i_mat, 1, var)
-	pq_i_vec = p_i_vec * (1-p_i_vec)
-	p_i_overall_var_vec =  pq_i_vec + p_i_var_vec #Law of total variance
-  } else if (outcome_type == 'cont'){
-
-	model_string = "model{
+    if (use_JAGS){
+      model_string = "model{
       #Likelihood
       for (i in 1:n){
-        Y[i] ~ dnorm(mu[i], inv.var)
-        mu[i] = inprod(beta, X[i, ])
+      Y[i] ~ dbin(prob[i], 1)
+      prob[i] = phi(inprod(beta, X[i, ]))
+      }
+      #Prior
+      for (j in 1:p){
+      beta[j] ~ dnorm(0, 1/prior_var_beta)
+      }
+    }"
+      #Fit model w/ JAGS
+      model_fit = jagsFun(data_list, model_str = model_string, n_iters = iters, n_burnin = burn_in)
+
+      #Extract MCMC iterations from JAGS
+      mcmc_iters = as.matrix(model_fit$samples[[1]][ ,1:p_tot])
+
+    } else { #Fit with native R code (quicker)
+      mcmc_iters = probitFit(dat$y, model_mat, prior_var_vec,
+                             iters = iters + burn_in)[-(1:burn_in),  ]
+    }
+    #Create Institution level estimates
+    #MCMC matrix of individual level probabilities
+    p_i_mat = pnorm(as.matrix(tcrossprod(model_mat, mcmc_iters)))
+
+    #Extract posterior row mean, implied observational variance, and row variance
+    p_i_vec = apply(p_i_mat, 1, mean)
+    p_i_var_vec = apply(p_i_mat, 1, var)
+    pq_i_vec = p_i_vec * (1-p_i_vec)
+    p_i_overall_var_vec =  pq_i_vec + p_i_var_vec #Law of total variance
+  } else if (outcome_type == 'cont'){
+
+    model_string = "model{
+      #Likelihood
+      for (i in 1:n){
+      Y[i] ~ dnorm(mu[i], inv.var)
+      mu[i] = inprod(beta, X[i, ])
       }
       #Prior
       inv.var ~ dgamma(prior_shape, prior_rate)
       sigma2 = 1/inv.var
       for (j in 1:p){
-        beta[j] ~ dnorm(0, 1/prior_var_beta)
+      beta[j] ~ dnorm(0, 1/prior_var_beta)
       }
     }"
-	data_list$prior_shape = prior_shape
-	data_list$prior_rate = prior_rate
-	parameters_to_save = c('beta', 'sigma2')
-	model_fit = jagsFun(data_list, model_str = model_string, parameters_to_save = parameters_to_save,
-			n_iters = iters, n_burnin = burn_in)
+    data_list$prior_shape = prior_shape
+    data_list$prior_rate = prior_rate
+    parameters_to_save = c('beta', 'sigma2')
+    model_fit = jagsFun(data_list, model_str = model_string, parameters_to_save = parameters_to_save,
+                        n_iters = iters, n_burnin = burn_in)
 
-	#Extract MCMC_iters
+    #Extract MCMC_iters
     mcmc_iters = model_fit$samples[[1]][ ,1:p_tot]
     sigma2_iters = model_fit$samples[[1]][ ,p_tot+1]
     p_i_mat =as.matrix(tcrossprod(as.matrix(model_mat), mcmc_iters))
@@ -203,84 +211,84 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
   scores_inst_subset = toScore(dgh_inst_subset$D, dgh_inst_subset$S)
 
   summaryMat = function(part_dat,dgh_mat, score_mat){
-	#Combine data into human readable data.frames
-	#Choose a score type
+    #Combine data into human readable data.frames
+    #Choose a score type
 
-	#If null, terminate early
-	if (is.null(dgh_mat)){return(NULL)}
+    #If null, terminate early
+    if (is.null(dgh_mat)){return(NULL)}
 
-	#Extract labels, counts, and observed rate
-	out_mat = cbind(part_dat$part_mat,
-		data.frame(n = part_dat$n, o_mean = part_dat$o_mean))
+    #Extract labels, counts, and observed rate
+    out_mat = cbind(part_dat$part_mat,
+                    data.frame(n = part_dat$n, o_mean = part_dat$o_mean))
 
-	#Extract effect and SE
-	effect_est = dgh_mat$D; effect_se =  dgh_mat$S
+    #Extract effect and SE
+    effect_est = dgh_mat$D; effect_se =  dgh_mat$S
 
-	#COmpute Logistic Regression quality ratio estimate
-	lr_est = dgh_mat$O / dgh_mat$E
+    #COmpute Logistic Regression quality ratio estimate
+    lr_est = dgh_mat$O / dgh_mat$E
 
-	#Select score est and se for desired standardization method (score_type)
-	score_list = switch(score_type,
-	'effect_scaled'= list(score_mat$est_effect_scaled,score_mat$s_effect_scale),
-	'stat_z'= list(score_mat$est_stat_z,score_mat$s_stat_z),
-	'stat_z_scaled'= list(score_mat$est_stat_z_scaled, score_mat$s_stat_z_scaled)
-	)
-	score_est = score_list[[1]]
-	score_se = score_list[[2]]
+    #Select score est and se for desired standardization method (score_type)
+    score_list = switch(score_type,
+                        'effect_scaled'= list(score_mat$est_effect_scaled,score_mat$s_effect_scale),
+                        'stat_z'= list(score_mat$est_stat_z,score_mat$s_stat_z),
+                        'stat_z_scaled'= list(score_mat$est_stat_z_scaled, score_mat$s_stat_z_scaled)
+    )
+    score_est = score_list[[1]]
+    score_se = score_list[[2]]
 
-	out =  cbind(out_mat,
-	             data.frame(
-	               effect_est = effect_est,
-	               effect_se = effect_se,
-	               lr_est = lr_est,
-	               score_est = score_est,
-	               score_se = score_se,
-	               stat_z = dgh_mat$Z))
-	out[c('dg_z')] = dg_out_vec
-	return(out)
-	}
+    out =  cbind(out_mat,
+                 data.frame(
+                   effect_est = effect_est,
+                   effect_se = effect_se,
+                   lr_est = lr_est,
+                   score_est = score_est,
+                   score_se = score_se,
+                   stat_z = dgh_mat$Z))
+    out[c('dg_z')] = dg_out_vec
+    return(out)
+  }
 
-  	#Summary data
-  	inst_mat = summaryMat(p_inst, dgh_inst, scores_inst)
-	names(inst_mat)[1] = 'inst'
+  #Summary data
+  inst_mat = summaryMat(p_inst, dgh_inst, scores_inst)
+  names(inst_mat)[1] = 'inst'
 
- 	subset_mat = summaryMat(p_subset, dgh_subset, scores_subset)
- 	inst_subset_mat = summaryMat(p_inst_subset, dgh_inst_subset,
-		scores_inst_subset)
- 	 if (subset){
-  		names(subset_mat)[1] = 'subset'
-  		names(inst_subset_mat)[1:2] = c('inst','subset')
-	}
+  subset_mat = summaryMat(p_subset, dgh_subset, scores_subset)
+  inst_subset_mat = summaryMat(p_inst_subset, dgh_inst_subset,
+                               scores_inst_subset)
+  if (subset){
+    names(subset_mat)[1] = 'subset'
+    names(inst_subset_mat)[1:2] = c('inst','subset')
+  }
 
- 	#Create baseline values w/ toBaseline
-	subset_mat_baseline = toBaseline(subset_mat)
-  	inst_subset_list_baseline = lapply(unique(inst_subset_mat$inst),
-		function(inst) toBaseline(inst_subset_mat[inst_subset_mat$inst == inst,  ], inst=TRUE))
-	inst_subset_mat_baseline = do.call('rbind', inst_subset_list_baseline)
+  #Create baseline values w/ toBaseline
+  subset_mat_baseline = toBaseline(subset_mat)
+  inst_subset_list_baseline = lapply(unique(inst_subset_mat$inst),
+                                     function(inst) toBaseline(inst_subset_mat[inst_subset_mat$inst == inst,  ], inst=TRUE))
+  inst_subset_mat_baseline = do.call('rbind', inst_subset_list_baseline)
 
-	#Add confidence intervals
-	aI = function(mat){#Wrapper for add intervals to include all options
-	addIntervals(mat, bonferroni = bonferroni, t_scores = t_scores, alpha = alpha)
-	}
-	inst_mat = aI(inst_mat)
-	subset_mat_nobaseline = aI(subset_mat)
-	subset_mat_baseline = aI(subset_mat_baseline)
-	inst_subset_mat_nobaseline = aI(inst_subset_mat)
-	inst_subset_mat_baseline = aI(inst_subset_mat_baseline)
+  #Add confidence intervals
+  aI = function(mat){#Wrapper for add intervals to include all options
+    addIntervals(mat, bonferroni = bonferroni, t_scores = t_scores, alpha = alpha)
+  }
+  inst_mat = aI(inst_mat)
+  subset_mat_nobaseline = aI(subset_mat)
+  subset_mat_baseline = aI(subset_mat_baseline)
+  inst_subset_mat_nobaseline = aI(inst_subset_mat)
+  inst_subset_mat_baseline = aI(inst_subset_mat_baseline)
 
-	if (!dat_out){#Remove saved variables to save storage space.
-	  dat = list()
-	} else{#If dat_out, export variables
-		dat$model_mat = model_mat; dat$mcmc_iters = mcmc_iters; dat$prior_var_vec = prior_var_vec
-	}
-	dat$subset = subset #Save subset info
+  if (!dat_out){#Remove saved variables to save storage space.
+    dat = list()
+  } else{#If dat_out, export variables
+    dat$model_mat = model_mat; dat$mcmc_iters = mcmc_iters; dat$prior_var_vec = prior_var_vec
+  }
+  dat$subset = subset #Save subset info
 
   return(list(
     dat = dat,
     inst_mat = inst_mat,
-	subset_mat_nobaseline = subset_mat_nobaseline,
-	subset_mat_baseline = subset_mat_baseline,
-	inst_subset_mat_nobaseline = inst_subset_mat_nobaseline,
-	inst_subset_mat_baseline = inst_subset_mat_baseline
-	 ))
+    subset_mat_nobaseline = subset_mat_nobaseline,
+    subset_mat_baseline = subset_mat_baseline,
+    inst_subset_mat_nobaseline = inst_subset_mat_nobaseline,
+    inst_subset_mat_baseline = inst_subset_mat_baseline
+  ))
 }

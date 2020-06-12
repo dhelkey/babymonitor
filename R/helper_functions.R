@@ -1,39 +1,46 @@
 #########################
 #useful wrapper functions for fitBabyMonitor and jagsUI::jags
-babyMonitor = function(minimal_data, num_cat, num_cont,
-                          outcome_type = 'dichotomous',
-						  alpha = 0.01,
-						  use_JAGS = FALSE,
-                          subset = FALSE,
-						  prior_var_beta = 10,
-						   prior_shape = 1,
-						   prior_rate = 1,
-						subset_base_catgory = 1,
-                          iters = 500, burn_in = 25,
-						  dg_gamma = 0.5,
-                          bonferroni = TRUE, t_scores = TRUE,
-                          outcome_na = 'remove', subset_na = 'category',
-                          cat_na = 'category', cont_na = 'median',
-			  score_type = 'stat_z_scaled',  dat_out = FALSE){
+babyMonitor = function(minimal_data, num_cat, num_cont,...){
   #' Wrapper function for quick analysis of BabyMONITOR
   #'
   #' \code{linCholSolver} solves Ax = y for x.
   fit = fitBabyMonitor(minimal_data, num_cat, num_cont,
-                       outcome_type = outcome_type,
-					   alpha = alpha,
-					   use_JAGS= use_JAGS,
-					   subset = subset,
-                       prior_var_beta = prior_var_beta,
-					   prior_shape = prior_shape,
-					   prior_rate = prior_rate,
-					   iters = iters, burn_in = burn_in,
-					   dg_gamma = dg_gamma,
-                       bonferroni = bonferroni,
-					   t_scores = t_scores,
-                       outcome_na = outcome_na, cat_na = cat_na, cont_na = cont_na,
-                       score_type = 'stat_z_scaled')
+					   compute_dg=TRUE, #Added this
+					   ...)
   return(fit$inst_mat)
 }
+
+runBM= function(outcome='survival', 
+			simple = TRUE,...){
+  #' Run BabyMonitor for a given outcome, results in a returner object
+  outcome_type = 'dichotomous'
+  use_JAGS=FALSE
+  if (outcome=='gv'){
+    outcome_type = 'cont'
+	use_JAGS=TRUE
+  }
+  dat = outcome_list[[outcome]]
+
+  cat_vars = dat$cat_vars
+  cont_vars = dat$cont_vars
+  num_cat = length(cat_vars)
+  num_cont = length(cont_vars);
+  id_var = 'hospid'
+  minimal_data = neonatal[ ,c(outcome, id_var, cat_vars, cont_vars)]
+
+  #Fit baby monitor
+  bm = fitBabyMonitor(minimal_data, 
+					num_cat,
+					num_cont,
+					outcome_type = outcome_type, 
+					use_JAGS = use_JAGS, ...)
+  
+  if (simple){
+	return(bm$inst_mat)
+  }
+  return(bm)
+}
+
 ##############################
 
 jagsFun = function(data_list,model_str = '', parameters_to_save = c('beta'), 
