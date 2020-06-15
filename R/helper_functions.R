@@ -33,7 +33,7 @@ runBM= function(outcome='survival',
 					num_cat,
 					num_cont,
 					outcome_type = outcome_type, 
-					use_JAGS = use_JAGS, ...)
+					use_JAGS = use_JAGS, compute_dg = TRUE, ...)
   
   if (simple){
 	return(bm$inst_mat)
@@ -135,7 +135,7 @@ correctInf = function(mat){
   return(mat)
 }
 
-toQuantiles = function(x, levels = 4){
+toQuantiles = function(x, levels = 5){
   #' Convert numeric variable to categorical 
   #' w/ 4 levels
   if (length(x) == 0){return(x)}

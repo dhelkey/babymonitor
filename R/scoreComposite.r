@@ -37,7 +37,6 @@ scoreComposite = function(returner_list, alpha = 0.01, bonferroni = TRUE, t_scor
 		returner_out[[mat]] = data.frame()
 		next
 	  }
-
 	  n_scores = length(returner_list)
 	  n_id_cols = length(id_cols)
 
@@ -65,13 +64,16 @@ scoreComposite = function(returner_list, alpha = 0.01, bonferroni = TRUE, t_scor
 	  }
 
 	  idStr = function(x){ #Make sure id (potentially two columns) is a vector
-		as.character(paste(x, collapse = '-'))
+		trimws(as.character(paste(x, collapse = '-')))
 	  }
+
 	  full_id_vec = apply(full_id_mat, 1, idStr)
 	  P = length(full_id_vec)
 
 	  #Put data in a matrix for easy score computation
 	  score_est_mat = score_se_mat =  n_mat = matrix(NA, nrow = P, ncol = n_scores)
+	  rownames(score_est_mat) = rownames(score_se_mat)= rownames(n_mat) = full_id_vec
+	  
 	  for (i in 1:n_scores) {
 		r = parsed_list[[i]]
 		id_str = apply(r$id_mat, 1, idStr)
@@ -86,8 +88,8 @@ scoreComposite = function(returner_list, alpha = 0.01, bonferroni = TRUE, t_scor
 	  score_est = rowSums(score_est_mat, na.rm = TRUE) / sqrt(n_components)
 
 	  #Add geometric mean
-	  #score_geom = apply(score_est_mat, 1, function(x) (prod(x[x!=0]))^(1/sum(x!=0)))
-    score_geom = geometricmeanRow(score_est_mat)
+	  score_geom = apply(score_est_mat, 1, function(x) (prod(x[x!=0]))^(1/sum(x!=0)))
+    #score_geom = geometricmeanRow(score_est_mat)
 
 	  score_se = apply(score_se_mat, 1,function(x) sqrt(sum(x^2, na.rm =TRUE))) / sqrt(n_components)
 
@@ -105,7 +107,9 @@ scoreComposite = function(returner_list, alpha = 0.01, bonferroni = TRUE, t_scor
 	  out_mat = data.frame(cbind(full_id_mat, score_est, score_geom, score_se, n_components, ws_approximate_df))
 	  out_mat$total_n = rowSums(n_mat, na.rm = TRUE)
 	  out_mat = addIntervals(out_mat, composite = TRUE, alpha = alpha, bonferroni = bonferroni, t_scores = t_scores)
-
+	  
+	  #Add Other composite measures (e.g. PCA)
+	out_mat$score_geom = score_geom
 	  names(out_mat)[1:n_id_cols] = id_cols
 
 
