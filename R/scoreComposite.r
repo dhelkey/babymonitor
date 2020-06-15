@@ -63,9 +63,6 @@ scoreComposite = function(returner_list, alpha = 0.01, bonferroni = TRUE, t_scor
 		full_id_mat = full_id_mat[order(full_id_mat[ ,1],full_id_mat[ ,2]), ]
 	  }
 
-	  idStr = function(x){ #Make sure id (potentially two columns) is a vector
-		trimws(as.character(paste(x, collapse = '-')))
-	  }
 
 	  full_id_vec = apply(full_id_mat, 1, idStr)
 	  P = length(full_id_vec)

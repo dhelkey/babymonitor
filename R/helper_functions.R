@@ -147,11 +147,9 @@ toQuantiles = function(x, levels = 5){
   labels = 1:(length(q_vec)-1)
   return(as.numeric(as.factor(cut(x, q_vec, labels = labels))))
 }
-
 idStr = function(x){ #Make sure id (potentially two columns) is a vector
-  as.character(paste(x, collapse = '-'))
+		trimws(as.character(paste(x, collapse = '-')))
 }
-
 
 
 
