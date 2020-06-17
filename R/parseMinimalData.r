@@ -104,12 +104,18 @@ parseMinimalData = function(minimal_data, num_cat, num_cont, subset = FALSE,
   y = as.numeric(minimal_data[ ,1])
   
   #Compute pcf_vec (for DG ranking)
+  pcf_vec = rep(1, length(y))
   if (num_cat > 0){
     pcf_vec = apply(cat_var_mat, 1, paste, collapse = '-')
-  } else{
-    pcf_vec = rep(1, length(y))
   }
-  
+  pcf_vec_cont = pcf_vec
+  if (num_cont > 0){
+    m_cont = apply(cont_var_mat, 2, toQuantiles)
+	pcf_vec_cont = apply(m_cont, 1, paste, collapse = '-')
+	pcf_vec_cont = cbind(pcf_vec, pcf_vec_cont)
+	pcf_vec_cont = apply(pcf_vec_cont,1,idStr)
+  }
+    
   return(list(
     indicator_name = names(minimal_data)[1],
     o_overall = mean(y),
@@ -118,6 +124,7 @@ parseMinimalData = function(minimal_data, num_cat, num_cont, subset = FALSE,
     N = length(y),
     p = length(unique(inst_vec)),
     pcf_vec = pcf_vec,
+	pcf_vec_cont = pcf_vec_cont,
     inst_vec = inst_vec,
     subset_vec = subset_vec,
     cat_var_mat = cat_var_mat,

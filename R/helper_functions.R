@@ -10,7 +10,7 @@ babyMonitor = function(minimal_data, num_cat, num_cont,...){
   return(fit$inst_mat)
 }
 
-runBM= function(outcome='survival', 
+runBM= function(outcome='survival', data_use = neonatal,
 			simple = TRUE,...){
   #' Run BabyMonitor for a given outcome, results in a returner object
   outcome_type = 'dichotomous'
@@ -26,7 +26,8 @@ runBM= function(outcome='survival',
   num_cat = length(cat_vars)
   num_cont = length(cont_vars);
   id_var = 'hospid'
-  minimal_data = neonatal[ ,c(outcome, id_var, cat_vars, cont_vars)]
+ 
+  minimal_data = data_use[ ,c(outcome, id_var, cat_vars, cont_vars)]
 
   #Fit baby monitor
   bm = fitBabyMonitor(minimal_data, 

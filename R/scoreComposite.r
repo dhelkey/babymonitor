@@ -83,11 +83,7 @@ scoreComposite = function(returner_list, alpha = 0.01, bonferroni = TRUE, t_scor
 	  #Create variance inflated score by multiplying the average by sqrt(n_scores)
 	  n_components = rowSums(!is.na(score_est_mat), na.rm = TRUE)
 	  score_est = rowSums(score_est_mat, na.rm = TRUE) / sqrt(n_components)
-
-	  #Add geometric mean
-	  score_geom = apply(score_est_mat, 1, function(x) (prod(x[x!=0]))^(1/sum(x!=0)))
-    #score_geom = geometricmeanRow(score_est_mat)
-
+	 
 	  score_se = apply(score_se_mat, 1,function(x) sqrt(sum(x^2, na.rm =TRUE))) / sqrt(n_components)
 
 	  #Compute approximate degrees of freedom w/ Welch-Satterthwaite
@@ -100,18 +96,39 @@ scoreComposite = function(returner_list, alpha = 0.01, bonferroni = TRUE, t_scor
 		rowSums(  (k_vec * score_se_mat^2)^2 / (df_mat) ,na.rm = TRUE)
 	ws_approximate_df[is.nan(ws_approximate_df)] = 0
 
+	  #Add geometric mean
+	  geomFun = function(x){
+	  #X should be a vector
+	  #geo_mean is a sca
+	  x = x[!is.na(x)]
+	  n = length(x)
+	  geo_mean = prod(x)^(1/n)
+	  return(geo_mean)
+	  }
+	  #Score percentiles
+	percentile_est = apply(score_est_mat, 2, function(x) ecdf(x)(x))
+	#Geometric mean of score percentiles
+	score_geom = apply(percentile_est, 1, geomFun)
+	
+	#Now PCA (if correlation is negative, multiply by negative 1)
+	#Set missing values to 0 ('no quality effect')
+	# imputed_score_est_mat = score_est_mat
+	# imputed_score_est_mat[is.na(imputed_score_est_mat)] = 0
+	# score_pca = prcomp(imputed_score_est_mat)$x[ ,1]
+	# if (cor(score_pca, score_est) < 0){score_pca = score_pca * -1}
+
 	  #Add table to the output list
-	  out_mat = data.frame(cbind(full_id_mat, score_est, score_geom, score_se, n_components, ws_approximate_df))
-	  out_mat$total_n = rowSums(n_mat, na.rm = TRUE)
-	  out_mat = addIntervals(out_mat, composite = TRUE, alpha = alpha, bonferroni = bonferroni, t_scores = t_scores)
+	  out_mat = data.frame(cbind(full_id_mat,
+	  score_est,
+	   score_se,
+		score_geom,
+		#score_pca, 
+		n_components, ws_approximate_df))
+	out_mat$total_n = rowSums(n_mat, na.rm = TRUE)
+	out_mat = addIntervals(out_mat, composite = TRUE, alpha = alpha, bonferroni = bonferroni, t_scores = t_scores)
 	  
-	  #Add Other composite measures (e.g. PCA)
-	out_mat$score_geom = score_geom
-	  names(out_mat)[1:n_id_cols] = id_cols
-
-
-
-		  returner_out[[mat]] = out_mat
+	names(out_mat)[1:n_id_cols] = id_cols
+	returner_out[[mat]] = out_mat
 	}
 	returner_out$dat = dat
 	returner_out$mat = score_est_mat

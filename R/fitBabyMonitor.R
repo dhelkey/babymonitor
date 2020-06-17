@@ -76,7 +76,7 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
                           subset_na = 'category',
                           cat_na = 'category',
                           cont_na = 'median',
-                          score_type = 'stat_z_scaled',
+                          score_type = 'stat_z',
                           dat_out = FALSE,
                           compute_dg = FALSE)
   {
@@ -104,7 +104,9 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 
 
   model_mat = cbind( rep(1, dat$N), model_mat_cat, model_mat_cont)
-  if (num_cat == 0){  model_mat = cbind( rep(1, dat$N), model_mat_cont)}
+  if (num_cat == 0){ 
+	model_mat = cbind( rep(1, dat$N), model_mat_cont)
+}
   p_tot = dim(model_mat)[2] #Number of parameters in the regression model
 
   #Store model matrices of different variable types
@@ -113,17 +115,10 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
 
   dg_out_vec = NULL
   if (compute_dg){ #Compute D-G score, with categorical variables quantized
-    m_cat = model_mat_cat
-    if (num_cont > 0){
-      m_cont = apply(model_mat_cont, 2, toQuantiles)
-      m_cat =  cbind(m_cat, m_cont)
-    }
-    #Create id string
-    pcf_vec = apply(m_cat, 1, idStr)
     dg_fun = switch(outcome_type,
                     'dichotomous' = designBased,
                     'cont' = designBasedCont)
-    dg = dg_fun(dg_gamma, dat$y, pcf_vec, dat$inst_vec)
+    dg = dg_fun(dg_gamma, dat$y, dat$pcf_vec_cont, dat$inst_vec)
     dg_out_vec = dg$Z
   }
 
