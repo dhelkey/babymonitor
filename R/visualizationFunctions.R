@@ -1,7 +1,7 @@
 
 visualizeReturner = function(returner, mat = 'inst_mat',
                   type = 'score', only_significant = FALSE,
-                  plot_order = 'effect', xlab = '', ylab = '',lwd = 1, ...){ #given/ranked, some other other order, 'sorted'
+                  plot_order = 'effect', xlab = '', ylab = '',lwd = 1,main = '', ...){ #given/ranked, some other other order, 'sorted'
 
  #Extract id colums for each option
   if (mat == 'inst_mat'){
@@ -70,6 +70,7 @@ visualizeReturner = function(returner, mat = 'inst_mat',
   graphics::segments(x0=x[upper_indices], x1=x[upper_indices],
                      y0 = lower[upper_indices], y1 = upper[upper_indices],  col = 'blue', lwd = lwd * 1.5, ...)
   graphics::abline(h = 0, lty = 3)
+  graphics::title(main)
 
   #Order and subset? if necesasary
   #Here is where we would extrreact only_significatnt
