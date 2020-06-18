@@ -78,7 +78,8 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
                           cont_na = 'median',
                           score_type = 'stat_z',
                           dat_out = FALSE,
-                          compute_dg = FALSE)
+                          compute_dg = FALSE,
+						  verbose = FALSE)
   {
   if (outcome_type == 'cont'){use_JAGS=TRUE} #Continuous model requires JAGS
 
@@ -145,7 +146,7 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
       }
     }"
       #Fit model w/ JAGS
-      model_fit = jagsFun(data_list, model_str = model_string, n_iters = iters, n_burnin = burn_in)
+      model_fit = jagsFun(data_list, model_str = model_string, n_iters = iters, n_burnin = burn_in, verbose = verbose)
 
       #Extract MCMC iterations from JAGS
       mcmc_iters = as.matrix(model_fit$samples[[1]][ ,1:p_tot])

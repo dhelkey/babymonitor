@@ -45,7 +45,7 @@ runBM= function(outcome='survival', data_use = neonatal,
 ##############################
 
 jagsFun = function(data_list,model_str = '', parameters_to_save = c('beta'), 
-	n_chains = 1, n_iters = 100, n_burnin = 25){
+	n_chains = 1, n_iters = 100, n_burnin = 25, verbose = FALSE){
 	#' Wrapper for jagsUI::jags
 	jagsUI::jags(data_list,
 		inits = NULL,
@@ -57,7 +57,7 @@ jagsFun = function(data_list,model_str = '', parameters_to_save = c('beta'),
 		DIC = FALSE, 
 		seed = NULL,
 		bugs.format = FALSE,
-		verbose = TRUE)
+		verbose = verbose)
 }
 	
 linCholSolver = function(R, y){

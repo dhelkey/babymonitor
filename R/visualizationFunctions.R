@@ -86,7 +86,7 @@ comparePlot = function(x, y1, y2=NULL, col_vec = c('blue', 'grey'),
   mtext(ylab1, side = 2, line = 1.6)
   mtext(ylab2, side = 4, line = 0)
   points(x, y2, col = col_vec[2], pch = pch)
-    points(x, y1, col = col_vec[2], pch = pch)
+  points(x, y1, col = col_vec[1], pch = pch)
   
   if (plot_legend){
   #Build legend manually
