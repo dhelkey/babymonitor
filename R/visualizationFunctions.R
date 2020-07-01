@@ -86,14 +86,16 @@ comparePlot = function(x, y1, y2=NULL, col_vec = c('blue', 'grey'),
   plot(x, y1, xlab = '', ylab = '', main = main , pch = pch, col = col_vec[1])
   mtext(ylab1, side = 2, line = 1.6)
   mtext(ylab2, side = 4, line = 0)
-  points(x, y2, col = col_vec[2], pch = pch)
+  legend_add = NULL
+  if (length(y2) > 0){points(x, y2, col = col_vec[2], pch = pch)
+  legend_add = paste0(ylab2, ': r=', round(cor(x,y2),3)) }
   points(x, y1, col = col_vec[1], pch = pch)
   
   if (plot_legend){
   #Build legend manually
   legend_str = c(
 	paste0(ylab1, ': r=', round(cor(x,y1),3)),
-	paste0(ylab2, ': r=', round(cor(x,y2),3)))
+	legend_add)
   legend('topleft', legend_str, fill = col_vec)
   }
 }

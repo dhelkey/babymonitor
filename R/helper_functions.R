@@ -44,6 +44,34 @@ runBM= function(outcome='survival', data_use = neonatal,
 
 ##############################
 
+computeGreatestChange = function(x1, x2, label = TRUE){
+  #' Change in rankings from x1 to x2
+  #' if label=FALSE, return raw percent difference
+
+  stopifnot(length(x1)==length(x2))
+  pct1 = ecdf(x1)(x1)
+  pct2 = ecdf(x2)(x2)
+  pct_diff = pct1 - pct2
+
+  if (!label){
+    return(pct_diff)
+  }
+  cut_vec =    cut(pct_diff, c(0, .1, .9, 1),
+                   labels = c('10th Percentile (Drop)',
+                              'Middle 80% (~Same)',
+                             '90th Percentile (Gain)'))
+  return(cut_vec)
+}
+
+sumFun = function(df){
+  #Show %survival, number of births,..
+  n = dim(df)[1]
+  n_male = sum(df$male==1, na.rm = TRUE)
+  n_survived = sum(df$survival==1, na.rm = TRUE)
+  print(paste('Infants:', n,' % Male:', round(n_male / n * 100,2),
+              ' % Survival:',round(n_survived / n * 100,2)))
+}
+
 jagsFun = function(data_list,model_str = '', parameters_to_save = c('beta'), 
 	n_chains = 1, n_iters = 100, n_burnin = 25, verbose = FALSE){
 	#' Wrapper for jagsUI::jags
@@ -93,7 +121,7 @@ criticalValues = function(n_vec, q = NULL, alpha = 0.01, bonferroni = TRUE, t_sc
   return(c_values)
 }
 
-addIntervals = function(data_frame, alpha = 0.01, bonferroni = TRUE, t_scores = TRUE, composite = FALSE, min_df = 5){
+addIntervals = function(data_frame, alpha = 0.01, bonferroni = TRUE, t_scores = TRUE, composite = FALSE, min_df = 9){
   #' Add upper and lower bounds to score and est bounds...
   #'
   #'@inheritParams fitBabyMonitor
@@ -136,11 +164,11 @@ correctInf = function(mat){
   return(mat)
 }
 
-toQuantiles = function(x, levels = 5){
+toQuantiles = function(x, derived_levels = 5){
   #' Convert numeric variable to categorical 
-  #' w/ 4 levels
+  #' w/ 5 derived_levels
   if (length(x) == 0){return(x)}
-  q_vec = quantile(as.numeric(x), probs = seq(0, 1, length = levels + 1), na.rm = TRUE)
+  q_vec = quantile(as.numeric(x), probs = seq(0, 1, length = derived_levels + 1), na.rm = TRUE)
   q_vec[1] = -Inf
   if (length(unique(q_vec)) < length(q_vec)){
 	q_vec = c( sort(unique(floor(q_vec))), Inf)

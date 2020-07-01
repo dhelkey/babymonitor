@@ -51,6 +51,7 @@ scoreComposite = function(returner_list, alpha = 0.01, bonferroni = TRUE, t_scor
 		parsed_temp$score_est = r[[mat]]$score_est
 		parsed_temp$score_se = r[[mat]]$score_se
 		parsed_temp$n = r[[mat]]$n
+		parsed_temp$lr_est=r[[mat]]$lr_est
 		parsed_list[[i]] = parsed_temp
 			  }
 
@@ -68,7 +69,7 @@ scoreComposite = function(returner_list, alpha = 0.01, bonferroni = TRUE, t_scor
 	  P = length(full_id_vec)
 
 	  #Put data in a matrix for easy score computation
-	  score_est_mat = score_se_mat =  n_mat = matrix(NA, nrow = P, ncol = n_scores)
+	  score_est_mat = score_se_mat =  n_mat = lr_est_mat = matrix(NA, nrow = P, ncol = n_scores)
 	  rownames(score_est_mat) = rownames(score_se_mat)= rownames(n_mat) = full_id_vec
 	  
 	  for (i in 1:n_scores) {
@@ -78,13 +79,15 @@ scoreComposite = function(returner_list, alpha = 0.01, bonferroni = TRUE, t_scor
 		score_est_mat[indices, i] = r$score_est
 		score_se_mat[indices, i] = r$score_se
 		n_mat[indices, i] = r$n
+		lr_est_mat[indices, i] = r$lr_est
 	  }
 
 	  #Create variance inflated score by multiplying the average by sqrt(n_scores)
 	  n_components = rowSums(!is.na(score_est_mat), na.rm = TRUE)
 	  score_est = rowSums(score_est_mat, na.rm = TRUE) / sqrt(n_components)
-	 
 	  score_se = apply(score_se_mat, 1,function(x) sqrt(sum(x^2, na.rm =TRUE))) / sqrt(n_components)
+
+	score_lr  = rowMeans(lr_est_mat, na.rm=TRUE)
 
 	  #Compute approximate degrees of freedom w/ Welch-Satterthwaite
 		k_vec = sqrt(n_components) /
@@ -122,6 +125,7 @@ scoreComposite = function(returner_list, alpha = 0.01, bonferroni = TRUE, t_scor
 	  score_est,
 	   score_se,
 		score_geom,
+		score_lr,
 		#score_pca, 
 		n_components, ws_approximate_df))
 	out_mat$total_n = rowSums(n_mat, na.rm = TRUE)

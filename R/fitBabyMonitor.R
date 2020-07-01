@@ -79,7 +79,8 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
                           score_type = 'stat_z',
                           dat_out = FALSE,
                           compute_dg = FALSE,
-						  verbose = FALSE)
+						  verbose = FALSE,
+						  derived_levels = 5)
   {
   if (outcome_type == 'cont'){use_JAGS=TRUE} #Continuous model requires JAGS
 
@@ -87,7 +88,8 @@ fitBabyMonitor = function(minimal_data, num_cat, num_cont,
   dat = parseMinimalData(minimal_data, num_cat, num_cont,
                          subset = subset, outcome_na = outcome_na,
                          subset_na = subset_na, cat_na = cat_na,
-                         cont_na = cont_na)
+                         cont_na = cont_na,
+						 derived_levels = derived_levels)
 
   #Partition data by institution, subset, and institution-subset
   p_inst = partitionSummary(dat$y, dat$inst_vec)

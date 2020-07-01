@@ -7,7 +7,8 @@ parseMinimalData = function(minimal_data, num_cat, num_cont, subset = FALSE,
                             cat_na = 'category',
                             cont_na = 'median',
                             n_cutoff = 1,
-                            unknown_category_code=99){
+                            unknown_category_code=99,
+							derived_levels =  5){
   #TODO Remove this for speed
   minimal_data = as.matrix(minimal_data)
   
@@ -110,7 +111,7 @@ parseMinimalData = function(minimal_data, num_cat, num_cont, subset = FALSE,
   }
   pcf_vec_cont = pcf_vec
   if (num_cont > 0){
-    m_cont = apply(cont_var_mat, 2, toQuantiles)
+    m_cont = apply(cont_var_mat, 2, toQuantiles, derived_levels = derived_levels)
 	pcf_vec_cont = apply(m_cont, 1, paste, collapse = '-')
 	pcf_vec_cont = cbind(pcf_vec, pcf_vec_cont)
 	pcf_vec_cont = apply(pcf_vec_cont,1,idStr)
