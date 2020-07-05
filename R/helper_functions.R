@@ -52,11 +52,15 @@ computeGreatestChange = function(x1, x2, label = TRUE){
   pct1 = ecdf(x1)(x1)
   pct2 = ecdf(x2)(x2)
   pct_diff = pct1 - pct2
+  #Percentile of the percentile difference
+  pct_diff = ecdf(pct_diff)(pct_diff)
+ 
 
   if (!label){
     return(pct_diff)
   }
-  cut_vec =    cut(pct_diff, c(0, .1, .9, 1),
+
+  cut_vec =  cut(pct_diff, c(0, .1, .9, 1),
                    labels = c('10th Percentile (Drop)',
                               'Middle 80% (~Same)',
                              '90th Percentile (Gain)'))
