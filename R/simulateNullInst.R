@@ -1,18 +1,12 @@
 simulateNullInst = function(minimal_data,
-							 num_cat, num_cont, var_intercept = 40,
-                             var_cat = 10,
-                             var_cat_interaction = 10, var_cont = 10, 
+							 num_cat, num_cont,
 							 iters = 100){
   #Uses the same default parameters as fitBabyMonitor
 
 
   ###Run through fitBabyMonitor to parse...thereby using the same default options :)
   r = fitBabyMonitor(minimal_data, num_cat, num_cont,
-                     var_intercept = var_intercept, var_cat = var_cat,
-                     var_cat_interaction = var_cat_interaction,
-                     var_cont = var_cont,
-                     dat_out = TRUE,
-                     n_cutoff = 1)
+                     dat_out = TRUE)
 
   #Extract variables
   N=r$dat$N #total number of individuals
