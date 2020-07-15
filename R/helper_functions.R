@@ -11,7 +11,7 @@ babyMonitor = function(minimal_data, num_cat, num_cont,...){
 }
 
 runBM= function(outcome='survival', data_use = neonatal,
-			simple = TRUE, id_var = 'deidhosp',...){
+			simple = TRUE, id_var = 'deidhosp', adjust_cmal = TRUE, ...){
   #' Run BabyMonitor for a given outcome, results in a returner object
   outcome_type = 'dichotomous'
   use_JAGS=FALSE
@@ -25,6 +25,17 @@ runBM= function(outcome='survival', data_use = neonatal,
   cont_vars = dat$cont_vars
   num_cat = length(cat_vars)
   num_cont = length(cont_vars);
+  
+  
+  #If appropriate, adjust for congenital anomolies here...
+  if (adjust_cmal){
+	if (length(unique(data_use$cmalmort)) > 1){
+		print('Adjusting for congenital anomolies')
+		cat_vars = c(cat_vars, 'cmalsevere')
+		n_cat = length(cat)
+	 }
+  }
+
  
   minimal_data = data_use[ ,c(outcome, id_var, cat_vars, cont_vars)]
 

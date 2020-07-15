@@ -1,4 +1,22 @@
 
+  boxPlotSingle =function(data, main = ''){
+    #Aggregate by ccs level
+    means = aggregate(score_bm~CCSLEVEL, data,mean)
+
+    means[ ,2] = round(means[ ,2],2)
+    p = ggplot(data, aes(x=CCSLEVEL, y = score_bm, color = CCSLEVEL)) +
+       geom_boxplot() +   ggtitle(main) +
+     geom_dotplot(binaxis='y', stackdir='center', dotsize=.5, binwidth = .25) +
+     stat_summary(fun.y=mean, colour="darkred", geom="point",
+                    shape=18, size=3) +
+       geom_text(data = means, aes(label = score_bm, y = score_bm + 0.15))
+
+    p
+  }
+
+
+
+
 visualizeReturner = function(returner, mat = 'inst_mat',
                   type = 'score', only_significant = FALSE,
                   plot_order = 'effect', xlab = '', ylab = '',lwd = 1,main = '', ...){ #given/ranked, some other other order, 'sorted'
@@ -77,12 +95,36 @@ visualizeReturner = function(returner, mat = 'inst_mat',
   return(0)
 }
 
+# comparePlot = function(x, y1, y2=NULL, col_vec = c('blue', 'grey'),
+                       # rank = TRUE,
+                       # xlab = '', ylab1 = '', ylab2 = '', main = '', pch = 19, plot_legend = TRUE, ...){
+  # if (rank){
+			# x=rank(x); y1=rank(y1); y2=rank(y2)
+			# }
+  # plot(x, y1, xlab = '', ylab = '', main = main , pch = pch, col = col_vec[1])
+  # mtext(ylab1, side = 2, line = 1.6)
+  # mtext(ylab2, side = 4, line = 0)
+  # legend_add = NULL
+  # if (length(y2) > 0){points(x, y2, col = col_vec[2], pch = pch)
+  # legend_add = paste0(ylab2, ': r=', round(cor(x,y2),3)) }
+  # points(x, y1, col = col_vec[1], pch = pch)
+  
+  # if (plot_legend){
+  # #Build legend manually
+  # legend_str = c(
+	# paste0(ylab1, ': r=', round(cor(x,y1),3)),
+	# legend_add)
+  # legend('topleft', legend_str, fill = col_vec)
+  # }
+# }
+
 comparePlot = function(x, y1, y2=NULL, col_vec = c('blue', 'grey'),
                        rank = TRUE,
                        xlab = '', ylab1 = '', ylab2 = '', main = '', pch = 19, plot_legend = TRUE, ...){
   if (rank){
 			x=rank(x); y1=rank(y1); y2=rank(y2)
 			}
+			
   plot(x, y1, xlab = '', ylab = '', main = main , pch = pch, col = col_vec[1])
   mtext(ylab1, side = 2, line = 1.6)
   mtext(ylab2, side = 4, line = 0)
@@ -98,4 +140,15 @@ comparePlot = function(x, y1, y2=NULL, col_vec = c('blue', 'grey'),
 	legend_add)
   legend('topleft', legend_str, fill = col_vec)
   }
+}
+
+comparePlotgg = function(data_frame, x = 'score_bm', y = 'score_lr', 
+	main = '',
+	col = 'CCSLEVEL', col_as_factor = TRUE,
+	size_var = 'n'){
+
+#Convert the color variable to a factor...
+if (col_as_factor){data_frame[[col]] = factor(data_frame[[col]])}
+ggplot(data_frame, aes_string(x = x, y = y)) + geom_point(aes_string(color = col)) + ggtitle(main)
+
 }
