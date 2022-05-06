@@ -1,0 +1,25 @@
+Package: babymonitor
+Title: Construct Draper-Gittoes-Helkey Institution Rankings
+Version: 1.0
+Date: 2018-12-10
+Authors@R: c(person("Daniel", "Helkey", email = "dhelkey@ucsc.edu",
+                  role = c("aut", "cre")),
+				person("David", "Draper", role = "aut",
+					email = "draper@ucsc.edu"),
+				person("Jessica", "Liu", role = "ctb",
+					email = "jbliu@stanford.edu"),
+				person("Lucy", "Greenberg", role = "ctb",
+					email = "LGreenberg@vtoxford.org"),
+				person("Daniel", "Kirsner", role = "ctb"))
+Description: Provides functions for ranking institution quality as measured by to binary performance indicators, accounting for categorical and continious risk adjusters. Rankings computed according using Draper-Gittoes-Helkey (2018) methodology. Functions are provided to run analysis on individual performance indicators and generate composite scores.  Main fitting functions (fitBabyMonitor() and scoreComposite()) intended for CPQCC/VON usage, but sub-functions provided for probit and Bayesian linear regression implemented with sparse matrices.
+Depends: R (>= 3.1.0)
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Imports:
+    Matrix,
+    truncnorm,
+  	methods
+Suggests:
+	MASS
+RoxygenNote: 6.0.1
