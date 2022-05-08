@@ -17,8 +17,8 @@ for (df in in_list){
     out_df = merge(out_df, df, all=TRUE, on='inst')
   }
 }
-#Number of scores for each instituion
-#(e.g. some hospitals may be)
+#Number of scores for each institution
+#(e.g. some hospitals may be not have data for all quality measures)
 n_components = rowSums(!is.na(out_df[n_vars]), na.rm = TRUE)
 
 #Constructing N(0,1) composite score
@@ -29,6 +29,10 @@ out_df['score'] = rowSums(out_df[score_vars] * score_weight_vec,
                           na.rm=TRUE)
 
 #Compute W-S estimated DF
+# Limitations of the Welch-Satterthwaite
+# approximation for measurement uncertainty
+# calculations
+# https://iopscience.iop.org/article/10.1088/0026-1394/37/1/8/
 #Equation [1] in Ballico, 2000
 DF_num = 1 #By construction (composite sums scores totalling unit variance)
 DF_denom = rowSums(score_se_vec^2 * 1/out_df[n_vars], na.rm=TRUE)

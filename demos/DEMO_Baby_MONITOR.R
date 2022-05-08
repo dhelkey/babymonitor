@@ -6,8 +6,14 @@
 # bm_train:     ""                 2013-2015
 # bm_test:    ""                   2016-2018
 
+
+#TODO add the code to retrive code from github
+#test on server
+#Remove the saved data portion
+
+
 outcome = 'survival'
-iters = 150
+iters = 300
 par(mfrow = c(2,2))
 id_var = 'deidhospid'
 data_use = bm_test #
@@ -35,13 +41,13 @@ dg_gamma = params$gamma
 
 #Fit & run baby monitor, including option to return all data (including MCMC iterations)
 bm_fit = fitBM(minimal_data,
-           num_cat,
-           num_cont,
-           outcome_type = outcome_type, verbose = TRUE,
-           prior_var_beta_inst = bm_var_inst,
-           prior_var_beta_params = bm_var_params,
-           iters=iters,
-           all_data_out=TRUE)
+               num_cat,
+               num_cont,
+               outcome_type = outcome_type, verbose = TRUE,
+               prior_var_beta_inst = bm_var_inst,
+               prior_var_beta_params = bm_var_params,
+               iters=iters,
+               all_data_out=TRUE)
 #TEST
 par(mfrow = c(2,2))
 bm = bm_fit$inst_mat
@@ -60,13 +66,13 @@ plot(bm$n, bm$effect,
      main = 'NICU size vs estimated effect',
      xlab  = 'Total infants',
      ylab = 'Estimated Effect')
-abline(0, 1, col = 'red', lwd = 2)
+
 
 plot(bm$n, bm$Z,
      main = 'Institution size vs Z',
      xlab  = 'Total infants',
      ylab = 'Baby-MONITOR Z')
-abline(0, 1, col = 'red', lwd = 2)
+
 
 plot(bm$O, bm$E,
      main = paste('Observed vs Expected - \n', outcome),
@@ -90,7 +96,9 @@ abline(0, 1, col = 'red', lwd = 2)
 #Requires setting all_data_out=TRUE in fitBM()
 
 #MCMC iterations:
-#Institutional effects
+#Institutional effects (alpha_i's)
+#mcmc_inst: n_institutions x MCMC iterations
+#model_mat_inst: Indicator matrix of individual institutional membership
 mcmc_inst = bm_fit$mcmc_inst
 model_mat_inst = bm_fit$model_mat_inst
 print(dim(mcmc_inst))
@@ -105,7 +113,7 @@ model_mat_risk = bm_fit$model_mat_risk
 # runBM(), runDG()
 par(mfrow = c(3,3))
 outcomes_temp = c('gv', 'survival')
-outcomes_temp = c('survival')
+#outcomes_temp = c('survival')
 dg_list = list()
 bm_list = list()
 for (outcome in outcomes){
@@ -125,10 +133,14 @@ for (outcome in outcomes){
 c_bm = compositeScore(bm_list)
 c_dg = compositeScore(dg_list)
 
-c_bm_saved = c_bm
-c_dg_saved = c_dg
-usethis::use_data(c_bm_saved,
-                  c_dg_saved, overwrite = TRUE)
+##Uncomment to test composite score generation without running the
+# code to score for all 9 quality measures
+# (to save time)
+# c_bm_saved = c_bm
+# c_dg_saved = c_dg
+# Unomment to overwrite saved composite score matrices
+# usethis::use_data(c_bm_saved,
+#                   c_dg_saved, overwrite = TRUE)
 
 
 #Uncomment to load saved data (computing Baby-MONITOR is time intensive)
@@ -136,7 +148,7 @@ c_bm = c_bm_saved
 c_dg = c_dg_saved
 
 
-#LookingViewing important variabes (score, p-value based on scoret-distributed scores,
+#LookingViewing important variabes (score, p-value based on t-distributed scores,
 # score componentes 1-9)
 head(c_bm[order(c_bm$score_p), c('score', 'score_p', 'Z1','Z2',  'Z3','Z4','Z5','Z6','Z7','Z8','Z9')])
 
@@ -162,7 +174,8 @@ prob_inst = c_bm[c_bm$total_n >2000 & c_bm$ws <300, ]
 #table(data_use[data_use$deidhospid==prob_inst$inst, c('ante') ])
 #Unbalanced sample sizes known to cause problems (Ballico, 2000))
 n_vars = paste('n',1:9, sep = '')
-prob_inst[ ,n_vars]
+n_vars_use = n_vars[n_vars %in% names(prob_inst)]
+prob_inst[ ,n_vars_use]
 
 
 #Regression to identify approximate W-S (98% of "total records")
