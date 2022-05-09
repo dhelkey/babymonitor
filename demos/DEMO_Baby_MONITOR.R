@@ -6,14 +6,13 @@
 # bm_train:     ""                 2013-2015
 # bm_test:    ""                   2016-2018
 
-
-#TODO add the code to retrive code from github
-#test on server
-#Remove the saved data portion
+#Uncomment to install the latest babymonitor code from github
+# devtools::install_github('dhelkey/babymonitor', force = TRUE)
+# library('babymonitor')
 
 
 outcome = 'survival'
-iters = 300
+iters = 1500
 par(mfrow = c(2,2))
 id_var = 'deidhospid'
 data_use = bm_test #
@@ -112,8 +111,6 @@ model_mat_risk = bm_fit$model_mat_risk
 #Evaluate outcomes using provided wrapper functions:
 # runBM(), runDG()
 par(mfrow = c(3,3))
-outcomes_temp = c('gv', 'survival')
-#outcomes_temp = c('survival')
 dg_list = list()
 bm_list = list()
 for (outcome in outcomes){
@@ -133,28 +130,20 @@ for (outcome in outcomes){
 c_bm = compositeScore(bm_list)
 c_dg = compositeScore(dg_list)
 
-##Uncomment to test composite score generation without running the
-# code to score for all 9 quality measures
-# (to save time)
-# c_bm_saved = c_bm
-# c_dg_saved = c_dg
-# Unomment to overwrite saved composite score matrices
-# usethis::use_data(c_bm_saved,
-#                   c_dg_saved, overwrite = TRUE)
+
+#Uncomment to load saved composite data
+#(computing Baby-MONITOR is time intensive)
+#c_bm = c_bm_saved
+#c_dg = c_dg_saved
 
 
-#Uncomment to load saved data (computing Baby-MONITOR is time intensive)
-c_bm = c_bm_saved
-c_dg = c_dg_saved
-
-
-#LookingViewing important variabes (score, p-value based on t-distributed scores,
-# score componentes 1-9)
+#Viewing important variabes (score, p-value based on t-distributed scores,
+# score components 1-9)
 head(c_bm[order(c_bm$score_p), c('score', 'score_p', 'Z1','Z2',  'Z3','Z4','Z5','Z6','Z7','Z8','Z9')])
 
 par(mfrow = c(1,1))
-plot(c_bm$score, c_dg$score,  xlabel = 'Baby-MONITOR Composite',
-     ylabel = 'Draper-Gittoes composite')
+plot(c_bm$score, c_dg$score,  xlab = 'Baby-MONITOR Composite',
+     ylab = 'Draper-Gittoes composite')
 abline(0,1, col = 'red')
 
 #Appendix
@@ -173,6 +162,7 @@ prob_inst = c_bm[c_bm$total_n >2000 & c_bm$ws <300, ]
 #1 institution only has 1 record for antenatal steroids
 #table(data_use[data_use$deidhospid==prob_inst$inst, c('ante') ])
 #Unbalanced sample sizes known to cause problems (Ballico, 2000))
+#https://iopscience.iop.org/article/10.1088/0026-1394/37/1/8/
 n_vars = paste('n',1:9, sep = '')
 n_vars_use = n_vars[n_vars %in% names(prob_inst)]
 prob_inst[ ,n_vars_use]
